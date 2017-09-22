@@ -62,13 +62,16 @@ for fastqPair in $(ls "$sampleId"_S*.fastq.gz | cut -d_ -f1-3 | sort | uniq); do
     "$read2Fastq"
 
     #fastqc
-    /share/apps/fastqc-distros/fastqc_v0.11.5/fastqc -d /state/partition1/tmpdir --threads 12 --extract "$seqId"_"$sampleId"_"$laneId"_R1.fastq
-    /share/apps/fastqc-distros/fastqc_v0.11.5/fastqc -d /state/partition1/tmpdir --threads 12 --extract "$seqId"_"$sampleId"_"$laneId"_R2.fastq
+    /share/apps/fastqc-distros/fastqc_v0.11.5/fastqc -d /state/partition1/tmpdir --threads 12 --extract "$seqId"_"$sampleId"_"$laneId"_R1.fastq.gz
+    /share/apps/fastqc-distros/fastqc_v0.11.5/fastqc -d /state/partition1/tmpdir --threads 12 --extract "$seqId"_"$sampleId"_"$laneId"_R2.fastq.gz
 
     #check FASTQC output
     if [ $(countQCFlagFails "$seqId"_"$sampleId"_"$laneId"_R1_fastqc/summary.txt) -gt 0 ] || [ $(countQCFlagFails "$seqId"_"$sampleId"_"$laneId"_R2_fastqc/summary.txt) -gt 0 ]; then
         rawSequenceQuality=FAIL
     fi
+
+    #print fastq paths <path2r1> <path2r2>
+    echo -e "$(find $PWD -name $seqId_$sampleId_$laneId_R1.fastq.gz)\t$(find $PWD -name $seqId_$sampleId_$laneId_R2.fastq.gz)" >> ../FASTQs.list
 
 done
 
@@ -76,8 +79,12 @@ done
 echo -e "RawSequenceQuality" > "$seqId"_"$sampleId"_QC.txt
 echo -e "$rawSequenceQuality" >> "$seqId"_"$sampleId"_QC.txt
 
-#Upload to BaseSpace
-#TODO
-
-#clean up
-rm "$seqId"_"$sampleId"_"$laneId"_R1.fastq.gz "$seqId"_"$sampleId"_"$laneId"_R2.fastq.gz
+#check if all samples are written
+if [ $(find .. -maxdepth 1 -mindepth 1 -type d | wc -l | sed 's/^[[:space:]]*//g') -eq $(sort ../FASTQs.list | uniq | wc -l | sed 's/^[[:space:]]*//g') ]; then
+    echo -e "seqId=$seqId\npanel=$panel" > ../variables
+    
+    #launch BS script
+    ln -s /data/archive/fastq/"$seqId"/SampleSheet.csv
+    ###TODO###
+    cp launch_script.sh .. && qsub launch_script.sh
+fi
